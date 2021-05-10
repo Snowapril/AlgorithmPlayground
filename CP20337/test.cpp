@@ -1,80 +1,81 @@
-#include <iostream>
-#include <vector>
-#include <algorithm>
-#include <chrono>
-#include <random>
-#include <limits>
+#include <fstream>
+#include <stack>
+#include <array>
+#include <bitset>
 using namespace std;
-
-int main()
-{
-	mt19937 rng;
-	uniform_int_distribution<int> dist(1, (numeric_limits<int>::max() >> 1));
-	
-	//! 2^8 부터 2^15 까지 돌려보는 loop
-	for (int i = 8; i <= 15; ++i)
-	{
-		size_t num = pow(2, i);
-		
-		vector<int> arr(num);
-		//! arr[0] ~ arr[num - 1] 까지 random integer로 채우는 코드
-		generate(arr.begin(), arr.end(), [&rng, &dist]() {
-			return dist(rng);
-		});
-
-		//! sorting하고 unique element제거
-		sort(arr.begin(), arr.end());
-		auto last = unique(arr.begin(), arr.end());
-		arr.erase(last, arr.end());
-		num = arr.size();
-
-		//! 이제 두 method 성능 비교
-		cout << "compare two method with #elements : " << num << endl;
-		
-		//! method1. 
-		auto start = chrono::high_resolution_clock::now();
-		for (int i = 0; i < num - 2; ++i) //! O(N)
-		{
-			for (int j = i + 1; j < num - 1; ++j) //! O(N)
-			{
-				//! Binary search O(logN)
-				const int targetNum = arr[i] + arr[j];
-				auto iter = lower_bound(arr.begin() + j + 1, arr.end(), targetNum);
-				if (iter != arr.end() && targetNum == *iter)
-				{
-					//! Do stuff with i, j and searched iter
-					cout << arr[i] << " + " << arr[j] << " = " << *iter << endl;
-				}
-			} //! O(NlogN)
-		} //! O(N^2logN)
-		cout << "method1 takes : " << chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - start).count()
-								   << "(ms)" << endl;
-
-		//! method 2
-		start = chrono::high_resolution_clock::now();
-		for (int k = num - 1; k >= 2; --k)
-		{
-			bool bFound = false;
-			int i = 0, j = k - 1;
-			while (i != j)
-			{
-				if (arr[i] + arr[j] > arr[k])
-					--j;
-				else if (arr[i] + arr[j] < arr[k])
-					++i;
-				else //! this mean arr[i] + arr[j] == arr[k]
-				{
-					bFound = true;
-					break;
-				}
-			}
-			if (bFound)
-			{
-				//! Do stuff with i, j, k
-				cout << arr[i] << " + " << arr[j] << " = " << arr[k] << endl;
-			}
-		}
-		cout << "method2 takes : " << chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - start).count()
-			<< "(ms)\n" << endl;
+int main() {
+	ifstream in("marathon.inp");
+	ofstream out("marathon.out");
+	int numEdge;
+	in >> numEdge >> numEdge;
+	array<int, 28> graph[28]{ 0, };
+	for (int i = 0; i < numEdge; ++i) {
+		char n1;
+		char n2;
+		int weight;
+		in >> n1 >> n2 >> weight;
+		n1 = n1 - 'a';
+		n2 = n2 - 'a';
+		graph[n2][n1] = weight;
+		graph[n1][n2] = weight;
 	}
+	using path_type = stack<pair<pair<char, char>, array<int, 28>>>;
+	path_type path;
+	bitset<28> visit(0);
+	path.emplace(pair(0, 0), graph[0]);
+	int curDist = 0;
+	path_type maxPath;
+	int maxPathLen = -1;
+	while (path.empty() == false) {
+		auto& curNode = path.top();
+		curNode.second[curNode.first.first] = 0;
+		int nextIdx = -1;
+		int weight = 0;
+		for (int i = 0; i < 28; ++i)
+			if (curNode.second[i] != 0 && !visit.test(i)) {
+				weight = curNode.second[i];
+				curNode.second[i] = 0;
+				curDist += weight;
+				path.emplace(pair(curNode.first.second, i), graph[i]);
+				visit.set(i);
+				nextIdx = i;
+				break;
+			}
+		if (nextIdx == 0) {
+			path.pop();
+			visit.set(nextIdx, 0);
+			if (curDist == 42 && maxPathLen < static_cast<int>(path.size())) {
+				maxPathLen = path.size();
+				maxPath = path;
+			}
+			curDist -= weight;
+		}
+		else if (curDist >= 42) {
+			path.pop();
+			visit.set(nextIdx, 0);
+			curDist -= weight;
+		}
+		else if (nextIdx == -1) {
+			path.pop();
+			visit.set(curNode.first.second, 0);
+			curDist -= graph[curNode.first.second][curNode.first.first];
+		}
+	}
+	out << maxPathLen << '\n';
+	stack<char> temp;
+	while (maxPath.empty() == false)
+	{
+		temp.push(maxPath.top().first.second + 'a');
+		maxPath.pop();
+	}
+	while (temp.empty() == false)
+	{
+		out << temp.top();
+		if (temp.size() > 1)
+			out << ' ';
+		temp.pop();
+	}
+	out.close();
+	in.close();
+	return 0;
 }
