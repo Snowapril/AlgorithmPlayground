@@ -34,6 +34,7 @@ void branchBound(const Nutrient<int>& minNutrient,
                  const vector<pair<Nutrient<int>, Nutrient<float>>>& foods, 
                  vector<int>* resultRecipe);
 void bound      ();
+void printOutput(const vector<int>& resultRecipe);
 
 int main()
 {
@@ -55,18 +56,13 @@ int main()
         return tuplize(food1.second) > tuplize(food2.second);
     });
 
-    for (auto& food : foods)
+    for (auto& food : foods)    
     {
         cout << food.first.index << ' ' << food.first.p << ' ' << food.first.f << ' ' << food.first.s << ' ' << food.first.v << ' ' << food.first.price << '\n';
         cout << food.second.p << ' ' << food.second.f << ' ' << food.second.s << ' ' << food.second.v << ' ' << "\n\n";
     }
 
     branchBound(minNutrient, foods, &resultRecipe);
-
-    for (int foodIdx : resultRecipe)
-    {
-        cout << foodIdx << ' ';
-    }
 
     return 0;
 }
@@ -132,4 +128,12 @@ void branchBound(const Nutrient<int>& minNutrient, const vector<pair<Nutrient<in
 void bound()
 {
 
+}
+
+void printOutput(const vector<int>& resultRecipe)
+{
+    for (int foodIdx : resultRecipe)
+    {
+        cout << foodIdx << ' ';
+    }
 }
