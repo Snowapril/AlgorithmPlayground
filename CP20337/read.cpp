@@ -1,37 +1,89 @@
-#include <algorithm>
+癤�#include <algorithm>
 #include <fstream>
 #include <array>
 #include <vector>
+#include <list>
 #include <iterator>
 #include <string>
 #include <tuple>
 
 using namespace std;
 #include <iostream>
+#include <chrono>
+vector<string> strings;
 
-vector<array<pair<vector<string>::iterator, vector<string>::iterator>, 4>> cache;
-void radixSort(vector<string>::iterator first, vector<string>::iterator last, size_t radixIdx);
+struct metadata {
+    vector<string>::iterator first, last;
+    size_t base;
+};
+tuple<metadata, metadata, metadata, metadata> InplaceRadixSort(vector<string>::iterator first, vector<string>::iterator last, size_t base);
 
 int main()
 {
-    ifstream in("read.inp");
+    ifstream in("input.inp", ios::ate);
     ofstream out("read.out");
     
-    //! 1. Read whole input at once
-    vector<string> strings;
-    copy(istream_iterator<string>(in), istream_iterator<string>{}, back_inserter(strings));
+    //! 1. Read inputs
+    auto st = chrono::high_resolution_clock::now();
 
+    const size_t size = in.tellg();
+    vector<char> dnaCache(size);
+    in.seekg(ios::beg);
+    in.read(dnaCache.data(), size);
+
+    strings.reserve(200000);
+    char* p = strtok(dnaCache.data(), "\n");
+    do {
+        strings.emplace_back(p);
+    } while ((p = strtok(NULL, "\n")) != NULL);
+
+    cout << "read : " << chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - st).count() << "(ms)" << endl;
+
+    //! 2. Radix sorting
     const size_t numStrings = strings.size();
-    array<size_t, 4> targets{ numStrings / 5.f, 2 * numStrings / 5.f, 3 * numStrings / 5.f,4 * numStrings / 5.f };
+    array<size_t, 4> targets{ numStrings / 5.0f, 2 * numStrings / 5.0f, 3 * numStrings / 5.0f, 4 * numStrings / 5.0f };
 
+    list<metadata> radixCache;
+    radixCache.push_back({ strings.begin(), strings.end(), 0 });
+    metadata a, c, g, t;
+    list<metadata>::iterator radixIter = radixCache.begin();
     size_t targetIdx = 0;
-    while (targetIdx == targets.size())
+    while (targetIdx != targets.size())
     {
-        radixSort(strings.begin(), strings.end(), 0);
+        st = chrono::high_resolution_clock::now();
+        tie(a, c, g, t) = InplaceRadixSort(radixIter->first, radixIter->last, radixIter->base);
+        radixIter = radixCache.erase(radixIter);
+        radixCache.insert(radixIter, { a, c, g, t });
+        cout << "radix sort : " << chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - st).count() << "(ms)" << endl;
 
-        //! Found targets[taretIdx]
-        //! out << *iter << '\n';
-        //! ++targetIdx;
+        size_t accmulated = 0;
+        for (auto iter = radixCache.begin(); iter != radixCache.end();)
+        {
+            const size_t length = iter->last - iter->first;
+            if (length == 0)
+                iter = radixCache.erase(iter);
+            else
+            {
+                if (accmulated + length < targets[targetIdx])
+                {
+                    accmulated += length;
+                }
+                else if (accmulated + length == targets[targetIdx])
+                {
+                    cout << *(iter->last) << ' ';
+                    targetIdx++;
+                    radixIter = next(iter, 1);
+                    break;
+                }
+                else
+                {
+                    radixIter = iter;
+                    break;
+                }
+
+                ++iter;
+            }
+        }
     }
 
     out.close();
@@ -39,32 +91,34 @@ int main()
     return 0;
 }
 
-void radixSort(vector<string>::iterator first, vector<string>::iterator last, size_t radixIdx)
+tuple<metadata, metadata, metadata, metadata> InplaceRadixSort(vector<string>::iterator first, vector<string>::iterator last, size_t base)
 {
-    vector<string> a, g, t, c;
-    for (auto iter = first; iter != last; ++iter)
+    metadata a, c, g, t;
+    vector<string>::iterator aPos = first, tPos = last;
+    a.first = aPos; t.last = tPos;
+    for (auto iter = aPos; iter != tPos;)
     {
-        //! 이부분 if 가 넘 많은데 개선 가능할듯
-        if (iter->size() <= radixIdx) 
-            a.emplace_back(move(iter)); //! 아 iter를 move하면 ++iter 때문에 오류날수도 있곘다 이거도 찾아보자
-        else
+        if (iter->size() <= base || iter->at(base) == 'a')
         {
-            char type = iter->at(radixIdx);
-            switch (type)
-            {
-            case 'a':
-                a.emplace_back(move(iter));
-                break;
-            case 'g':
-                g.emplace_back(move(iter));
-                break;
-            case 't':
-                t.emplace_back(move(iter));
-                break;
-            case 'c':
-                c.emplace_back(move(iter));
-                break;
-            }
+            swap(*iter, *(aPos++));
+            ++iter;
         }
+        else if (iter->at(base) == 't')
+            swap(*iter, *(--tPos));
+        else
+            ++iter;
     }
+    a.last = aPos; t.first = tPos;
+
+    vector<string>::iterator cPos = aPos;
+    c.first = cPos; g.last = tPos;
+    for (auto iter = cPos; iter != tPos; ++iter)
+    {
+        if (iter->at(base) == 'c')
+            swap(*iter, *(cPos++));
+    }
+    c.last = g.first = cPos;
+
+    a.base = c.base = g.base = t.base = base + 1;
+    return make_tuple(a, c, g, t);
 }
