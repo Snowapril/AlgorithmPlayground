@@ -1,124 +1,122 @@
-癤�#include <algorithm>
+#include <algorithm>
 #include <fstream>
 #include <array>
 #include <vector>
 #include <list>
-#include <iterator>
-#include <string>
 #include <tuple>
+#include <string>
+#include <string.h>
 
 using namespace std;
-#include <iostream>
-#include <chrono>
-vector<string> strings;
 
 struct metadata {
-    vector<string>::iterator first, last;
+    vector<string>::iterator first;
+    vector<string>::iterator last;
     size_t base;
 };
-tuple<metadata, metadata, metadata, metadata> InplaceRadixSort(vector<string>::iterator first, vector<string>::iterator last, size_t base);
 
 int main()
 {
-    ifstream in("input.inp", ios::ate);
-    ofstream out("read.out");
-    
-    //! 1. Read inputs
-    auto st = chrono::high_resolution_clock::now();
+    FILE* in = fopen("read.inp", "r");
+    FILE* out = fopen("read.out", "w");
 
-    const size_t size = in.tellg();
-    vector<char> dnaCache(size);
-    in.seekg(ios::beg);
-    in.read(dnaCache.data(), size);
+    //! 전체 파일을 한번에 다 읽어옵니다.
+    fseek(in, 0, SEEK_END);
+    const size_t size = ftell(in);
+    vector<char> dnaContents(size);
+    fseek(in, 0, SEEK_SET);
+    fread(dnaContents.data(), 1, size, in);
 
-    strings.reserve(200000);
-    char* p = strtok(dnaCache.data(), "\n");
+    //! 한번에 읽어온 내용을 \n token으로 다 분리해냅니다.
+    vector<string> dnaStrings;
+    dnaStrings.reserve(200000);
+    char* p, * temp;
+    p = strtok_s(dnaContents.data(), "\n", &temp);
     do {
-        strings.emplace_back(p);
-    } while ((p = strtok(NULL, "\n")) != NULL);
+        dnaStrings.emplace_back(p);
+    } while ((p = strtok_s(NULL, "\n", &temp)) != NULL);
 
-    cout << "read : " << chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - st).count() << "(ms)" << endl;
+    const array<size_t, 4> targets{
+        static_cast<size_t>(dnaStrings.size() * 0.2),
+        static_cast<size_t>(dnaStrings.size() * 0.4),
+        static_cast<size_t>(dnaStrings.size() * 0.6),
+        static_cast<size_t>(dnaStrings.size() * 0.8)
+    };
 
-    //! 2. Radix sorting
-    const size_t numStrings = strings.size();
-    array<size_t, 4> targets{ numStrings / 5.0f, 2 * numStrings / 5.0f, 3 * numStrings / 5.0f, 4 * numStrings / 5.0f };
-
-    list<metadata> radixCache;
-    radixCache.push_back({ strings.begin(), strings.end(), 0 });
-    metadata a, c, g, t;
-    list<metadata>::iterator radixIter = radixCache.begin();
-    size_t targetIdx = 0;
-    while (targetIdx != targets.size())
+    //! 추가 메모리를 생성하지 않고 dnaStrings 내부에서 radix sort하는 함수입니다.
+    //! out-place radix sort로 구현하면 좀더 빨라질 것 같긴한데 그냥 inplace로 구현했습니다.
+    auto InplaceRadixSort = [](vector<string>::iterator first, vector<string>::iterator last, size_t base)
     {
-        st = chrono::high_resolution_clock::now();
-        tie(a, c, g, t) = InplaceRadixSort(radixIter->first, radixIter->last, radixIter->base);
-        radixIter = radixCache.erase(radixIter);
-        radixCache.insert(radixIter, { a, c, g, t });
-        cout << "radix sort : " << chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - st).count() << "(ms)" << endl;
+        metadata a, c, g, t;
+        a.base = c.base = g.base = t.base = base + 1;
 
-        size_t accmulated = 0;
-        for (auto iter = radixCache.begin(); iter != radixCache.end();)
+        vector<string>::iterator aPos = first, tPos = last;
+        a.first = aPos; t.last = tPos;
+        for (auto iter = aPos; iter != tPos;)
         {
-            const size_t length = iter->last - iter->first;
+            if (iter->size() <= base || iter->at(base) == 'a')
+            {
+                swap(*iter, *(aPos++));
+                ++iter;
+            }
+            else if (iter->at(base) == 't')
+                swap(*iter, *(--tPos));
+            else
+                ++iter;
+        }
+        a.last = aPos; t.first = tPos;
+
+        vector<string>::iterator cPos = aPos;
+        c.first = cPos; g.last = tPos;
+        for (auto iter = cPos; iter != tPos; ++iter)
+        {
+            if (iter->at(base) == 'c')
+                swap(*iter, *(cPos++));
+        }
+        c.last = g.first = cPos;
+
+        return make_tuple(a, c, g, t);
+    };
+
+    list<metadata> radixTree{ { dnaStrings.begin(), dnaStrings.end(), 0 } };
+    for (auto targetIter = targets.begin(); targetIter != targets.end(); ++targetIter)
+    {
+        size_t targetIndex = *targetIter + 1;
+
+        for (auto iter = radixTree.begin(); iter != radixTree.end();)
+        {
+            const size_t length = distance(iter->first, iter->last);
             if (length == 0)
-                iter = radixCache.erase(iter);
+            {
+                iter = radixTree.erase(iter);
+                continue;
+            }
+
+            if (length < targetIndex)
+            {
+                targetIndex -= length;
+                ++iter;
+            }
             else
             {
-                if (accmulated + length < targets[targetIdx])
+                if (targetIndex <= length && (*(iter->first) == *(iter->last - 1)) ||
+                    (targetIndex == length && length == 1))
                 {
-                    accmulated += length;
-                }
-                else if (accmulated + length == targets[targetIdx])
-                {
-                    cout << *(iter->last) << ' ';
-                    targetIdx++;
-                    radixIter = next(iter, 1);
+                    fprintf(out, "%s\n", iter->first->c_str());
                     break;
                 }
                 else
                 {
-                    radixIter = iter;
-                    break;
+                    metadata a, c, g, t;
+                    tie(a, c, g, t) = InplaceRadixSort(iter->first, iter->last, iter->base);
+                    iter = radixTree.erase(iter);
+                    iter = radixTree.insert(iter, { a, c, g, t });
                 }
-
-                ++iter;
             }
         }
     }
 
-    out.close();
-    in.close();
+    fclose(out);
+    fclose(in);
     return 0;
-}
-
-tuple<metadata, metadata, metadata, metadata> InplaceRadixSort(vector<string>::iterator first, vector<string>::iterator last, size_t base)
-{
-    metadata a, c, g, t;
-    vector<string>::iterator aPos = first, tPos = last;
-    a.first = aPos; t.last = tPos;
-    for (auto iter = aPos; iter != tPos;)
-    {
-        if (iter->size() <= base || iter->at(base) == 'a')
-        {
-            swap(*iter, *(aPos++));
-            ++iter;
-        }
-        else if (iter->at(base) == 't')
-            swap(*iter, *(--tPos));
-        else
-            ++iter;
-    }
-    a.last = aPos; t.first = tPos;
-
-    vector<string>::iterator cPos = aPos;
-    c.first = cPos; g.last = tPos;
-    for (auto iter = cPos; iter != tPos; ++iter)
-    {
-        if (iter->at(base) == 'c')
-            swap(*iter, *(cPos++));
-    }
-    c.last = g.first = cPos;
-
-    a.base = c.base = g.base = t.base = base + 1;
-    return make_tuple(a, c, g, t);
 }
