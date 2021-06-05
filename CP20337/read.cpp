@@ -20,14 +20,14 @@ int main()
     FILE* in = fopen("read.inp", "r");
     FILE* out = fopen("read.out", "w");
 
-    //! ÀüÃ¼ ÆÄÀÏÀ» ÇÑ¹ø¿¡ ´Ù ÀÐ¾î¿É´Ï´Ù.
+    //! ï¿½ï¿½Ã¼ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ñ¹ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½Ð¾ï¿½É´Ï´ï¿½.
     fseek(in, 0, SEEK_END);
     const size_t size = ftell(in);
     vector<char> dnaContents(size);
     fseek(in, 0, SEEK_SET);
     fread(dnaContents.data(), 1, size, in);
 
-    //! ÇÑ¹ø¿¡ ÀÐ¾î¿Â ³»¿ëÀ» \n tokenÀ¸·Î ´Ù ºÐ¸®ÇØ³À´Ï´Ù.
+    //! ï¿½Ñ¹ï¿½ï¿½ï¿½ ï¿½Ð¾ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ \n tokenï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½Ð¸ï¿½ï¿½Ø³ï¿½ï¿½Ï´ï¿½.
     vector<string> dnaStrings;
     dnaStrings.reserve(200000);
     char* p, * temp;
@@ -43,8 +43,8 @@ int main()
         static_cast<size_t>(dnaStrings.size() * 0.8)
     };
 
-    //! Ãß°¡ ¸Þ¸ð¸®¸¦ »ý¼ºÇÏÁö ¾Ê°í dnaStrings ³»ºÎ¿¡¼­ radix sortÇÏ´Â ÇÔ¼öÀÔ´Ï´Ù.
-    //! out-place radix sort·Î ±¸ÇöÇÏ¸é Á»´õ »¡¶óÁú °Í °°±äÇÑµ¥ ±×³É inplace·Î ±¸ÇöÇß½À´Ï´Ù.
+    //! ï¿½ß°ï¿½ ï¿½Þ¸ð¸®¸ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ê°ï¿½ dnaStrings ï¿½ï¿½ï¿½Î¿ï¿½ï¿½ï¿½ radix sortï¿½Ï´ï¿½ ï¿½Ô¼ï¿½ï¿½Ô´Ï´ï¿½.
+    //! out-place radix sortï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï¸ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ñµï¿½ ï¿½×³ï¿½ inplaceï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ß½ï¿½ï¿½Ï´ï¿½.
     auto InplaceRadixSort = [](vector<string>::iterator first, vector<string>::iterator last, size_t base)
     {
         metadata a, c, g, t;
